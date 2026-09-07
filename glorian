@@ -1,0 +1,434 @@
+# vi data base
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  goals        Goal[]
+  subjects     Subject[]
+  missions     Mission[]
+  sessions     TrainingSession[]
+  reflections  Reflection[]
+  mistakes     Mistake[]
+}
+
+model Subject {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  modules   Module[]
+
+  createdAt DateTime @default(now())
+}
+
+model Module {
+  id        String   @id @default(cuid())
+  name      String
+  subjectId String
+
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  topics    Topic[]
+}
+
+model Topic {
+  id        String   @id @default(cuid())
+  name      String
+  mastery   Int      @default(0)
+  moduleId  String
+
+  module    Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+}
+
+model Goal {
+  id        String   @id @default(cuid())
+  title     String
+  category  String
+  target    Int
+  progress  Int      @default(0)
+  deadline  DateTime?
+  userId    String
+
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model Mission {
+  id        String   @id @default(cuid())
+  title     String
+  target    Int
+  completed Int      @default(0)
+  date      DateTime
+  userId    String
+
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TrainingSession {
+  id        String   @id @default(cuid())
+  subject   String
+  topic     String
+  problems  Int
+  correct   Int
+  minutes   Int
+  userId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Mistake {
+  id          String   @id @default(cuid())
+  subject     String
+  topic       String
+  description String
+  type        String
+  prevention  String
+  resolved    Boolean  @default(false)
+  userId      String
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Reflection {
+  id        String   @id @default(cuid())
+  improve   String
+  weakness  String
+  rating    Int
+  date      DateTime
+  userId    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+export interface ScoreInput {
+  goalCompletion: number;
+  trainingAccuracy: number;
+  consistency: number;
+  weaknessAttack: number;
+  reflection: number;
+}
+
+export function calculateMambaScore(
+  input: ScoreInput
+): number {
+
+  const score =
+    input.goalCompletion * 0.25 +
+    input.trainingAccuracy * 0.25 +
+    input.consistency * 0.20 +
+    input.weaknessAttack * 0.20 +
+    input.reflection * 0.10;
+
+  return Math.round(
+    Math.min(100, Math.max(0, score))
+  );
+}
+
+
+#dashboard
+import { MambaScore } from "@/components/dashboard/MambaScore";
+import { TodayMission } from "@/components/dashboard/TodayMission";
+
+export default function Dashboard() {
+
+  return (
+    <main className="min-h-screen bg-black text-white p-8">
+
+      <header className="mb-8">
+
+        <h1 className="text-4xl font-bold">
+          🐍 MAMBA
+        </h1>
+
+        <p className="text-zinc-400 mt-2">
+          Personal Performance System
+        </p>
+
+      </header>
+
+      <section className="grid md:grid-cols-4 gap-4">
+
+        <MambaScore />
+
+        <div className="rounded-xl border border-zinc-800 p-6">
+          <p className="text-zinc-500">
+            Training
+          </p>
+
+          <p className="text-3xl font-bold">
+            0h
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-zinc-800 p-6">
+          <p className="text-zinc-500">
+            Goals
+          </p>
+
+          <p className="text-3xl font-bold">
+            0%
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-zinc-800 p-6">
+          <p className="text-zinc-500">
+            Weaknesses
+          </p>
+
+          <p className="text-3xl font-bold">
+            0
+          </p>
+        </div>
+
+      </section>
+
+      <section className="mt-6">
+        <TodayMission />
+      </section>
+
+    </main>
+  );
+}
+#performance
+export function calculateTopicPerformance(
+  sessions: {
+    topic: string;
+    accuracy: number;
+  }[]
+) {
+
+  const topics: Record<string, number[]> = {};
+
+  for (const session of sessions) {
+
+    if (!topics[session.topic]) {
+      topics[session.topic] = [];
+    }
+
+    topics[session.topic].push(
+      session.accuracy
+    );
+  }
+
+  return Object.entries(topics)
+    .map(([topic, values]) => {
+
+      const average =
+        values.reduce((a, b) => a + b, 0)
+        / values.length;
+
+      return {
+        topic,
+        average: Math.round(average),
+      };
+
+    })
+    .sort(
+      (a, b) => a.average - b.average
+    );
+}
+
+export function calculateMastery(
+  accuracy: number,
+  attempts: number,
+  recentPerformance: number
+) {
+
+  if (attempts === 0) return 0;
+
+  if (
+    accuracy >= 90 &&
+    attempts >= 10 &&
+    recentPerformance >= 90
+  ) {
+    return 5;
+  }
+
+  if (accuracy >= 80) return 4;
+
+  if (accuracy >= 70) return 3;
+
+  if (accuracy >= 50) return 2;
+
+  return 1;
+}
+
+export function getMistakeFrequency(
+  mistakes: { type: string }[]
+) {
+
+  const counts: Record<string, number> = {};
+
+  mistakes.forEach(mistake => {
+
+    counts[mistake.type] =
+      (counts[mistake.type] || 0) + 1;
+
+  });
+
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1]);
+}
+
+interface Topic {
+  name: string;
+  mastery: number;
+  accuracy: number;
+  mistakes: number;
+  daysSincePractice: number;
+}
+
+export function chooseNextBattle(
+  topics: Topic[]
+) {
+
+  if (!topics.length) {
+    return null;
+  }
+
+  const scored = topics.map(topic => {
+
+    const weakness =
+      (100 - topic.accuracy) * 0.45;
+
+    const lowMastery =
+      (5 - topic.mastery) * 10 * 0.30;
+
+    const neglect =
+      Math.min(topic.daysSincePractice * 5, 30)
+      * 0.15;
+
+    const mistakes =
+      Math.min(topic.mistakes * 3, 30)
+      * 0.10;
+
+    return {
+      ...topic,
+
+      score:
+        weakness +
+        lowMastery +
+        neglect +
+        mistakes
+    };
+
+  });
+
+  scored.sort(
+    (a, b) => b.score - a.score
+  );
+
+  return scored[0];
+}
+
+export function AttackMode({
+  topic,
+  onStart
+}: {
+  topic: string;
+  onStart: () => void;
+}) {
+
+  return (
+
+    <div className="rounded-2xl border
+                    border-zinc-700
+                    bg-zinc-950
+                    p-8">
+
+      <p className="text-sm text-zinc-500">
+        YOUR NEXT BATTLE
+      </p>
+
+      <h2 className="text-3xl font-bold mt-3">
+        🐍 {topic}
+      </h2>
+
+      <p className="text-zinc-400 mt-3">
+        This is currently one of your
+        weakest areas.
+      </p>
+
+      <button
+        onClick={onStart}
+        className="mt-6 bg-white
+                   text-black px-6 py-3
+                   rounded-lg font-bold"
+      >
+        ATTACK
+      </button>
+
+    </div>
+
+  );
+}
+
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+export async function POST(req: Request) {
+
+  const body = await req.json();
+
+  const prompt = `
+You are the Mamba Performance Coach.
+
+Analyze the student's performance.
+
+Training:
+${JSON.stringify(body.training)}
+
+Mistakes:
+${JSON.stringify(body.mistakes)}
+
+Mastery:
+${JSON.stringify(body.mastery)}
+
+Goals:
+${JSON.stringify(body.goals)}
+
+Give:
+
+1. Biggest weakness
+2. Biggest strength
+3. Main reason for poor performance
+4. One thing to stop doing
+5. One thing to start doing
+6. Next training mission
+7. Recommended duration
+8. Target accuracy
+
+Do not give generic motivational advice.
+Use the student's actual data.
+`;
+
+  const response =
+    await openai.responses.create({
+      model: "gpt-5",
+      input: prompt
+    });
+
+  return Response.json({
+    advice: response.output_text
+  });
+}
+
+
+
+
