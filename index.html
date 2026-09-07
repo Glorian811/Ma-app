@@ -1,434 +1,169 @@
-# vi data base
-generator client {
-  provider = "prisma-client-js"
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MAMBA — Personal Performance System</title>
+  
+  <!-- Tailwind CSS for styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & React-DOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel compiler to parse React components live in browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-black text-white antialiased selection:bg-zinc-800">
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+  <div id="root"></div>
 
-model User {
-  id        String   @id @default(cuid())
-  name      String?
-  email     String   @unique
-  createdAt DateTime @default(now())
+  <script type="text/babel">
+    const { useState } = React;
 
-  goals        Goal[]
-  subjects     Subject[]
-  missions     Mission[]
-  sessions     TrainingSession[]
-  reflections  Reflection[]
-  mistakes     Mistake[]
-}
+    // --- UTILITY CALCULATIONS ---
+    function calculateMambaScore(input) {
+      const score =
+        input.goalCompletion * 0.25 +
+        input.trainingAccuracy * 0.25 +
+        input.consistency * 0.20 +
+        input.weaknessAttack * 0.20 +
+        input.reflection * 0.10;
 
-model Subject {
-  id        String   @id @default(cuid())
-  name      String
-  userId    String
-
-  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  modules   Module[]
-
-  createdAt DateTime @default(now())
-}
-
-model Module {
-  id        String   @id @default(cuid())
-  name      String
-  subjectId String
-
-  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  topics    Topic[]
-}
-
-model Topic {
-  id        String   @id @default(cuid())
-  name      String
-  mastery   Int      @default(0)
-  moduleId  String
-
-  module    Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-}
-
-model Goal {
-  id        String   @id @default(cuid())
-  title     String
-  category  String
-  target    Int
-  progress  Int      @default(0)
-  deadline  DateTime?
-  userId    String
-
-  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-}
-
-model Mission {
-  id        String   @id @default(cuid())
-  title     String
-  target    Int
-  completed Int      @default(0)
-  date      DateTime
-  userId    String
-
-  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model TrainingSession {
-  id        String   @id @default(cuid())
-  subject   String
-  topic     String
-  problems  Int
-  correct   Int
-  minutes   Int
-  userId    String
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Mistake {
-  id          String   @id @default(cuid())
-  subject     String
-  topic       String
-  description String
-  type        String
-  prevention  String
-  resolved    Boolean  @default(false)
-  userId      String
-  createdAt   DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Reflection {
-  id        String   @id @default(cuid())
-  improve   String
-  weakness  String
-  rating    Int
-  date      DateTime
-  userId    String
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-export interface ScoreInput {
-  goalCompletion: number;
-  trainingAccuracy: number;
-  consistency: number;
-  weaknessAttack: number;
-  reflection: number;
-}
-
-export function calculateMambaScore(
-  input: ScoreInput
-): number {
-
-  const score =
-    input.goalCompletion * 0.25 +
-    input.trainingAccuracy * 0.25 +
-    input.consistency * 0.20 +
-    input.weaknessAttack * 0.20 +
-    input.reflection * 0.10;
-
-  return Math.round(
-    Math.min(100, Math.max(0, score))
-  );
-}
-
-
-#dashboard
-import { MambaScore } from "@/components/dashboard/MambaScore";
-import { TodayMission } from "@/components/dashboard/TodayMission";
-
-export default function Dashboard() {
-
-  return (
-    <main className="min-h-screen bg-black text-white p-8">
-
-      <header className="mb-8">
-
-        <h1 className="text-4xl font-bold">
-          🐍 MAMBA
-        </h1>
-
-        <p className="text-zinc-400 mt-2">
-          Personal Performance System
-        </p>
-
-      </header>
-
-      <section className="grid md:grid-cols-4 gap-4">
-
-        <MambaScore />
-
-        <div className="rounded-xl border border-zinc-800 p-6">
-          <p className="text-zinc-500">
-            Training
-          </p>
-
-          <p className="text-3xl font-bold">
-            0h
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-zinc-800 p-6">
-          <p className="text-zinc-500">
-            Goals
-          </p>
-
-          <p className="text-3xl font-bold">
-            0%
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-zinc-800 p-6">
-          <p className="text-zinc-500">
-            Weaknesses
-          </p>
-
-          <p className="text-3xl font-bold">
-            0
-          </p>
-        </div>
-
-      </section>
-
-      <section className="mt-6">
-        <TodayMission />
-      </section>
-
-    </main>
-  );
-}
-#performance
-export function calculateTopicPerformance(
-  sessions: {
-    topic: string;
-    accuracy: number;
-  }[]
-) {
-
-  const topics: Record<string, number[]> = {};
-
-  for (const session of sessions) {
-
-    if (!topics[session.topic]) {
-      topics[session.topic] = [];
+      return Math.round(Math.min(100, Math.max(0, score)));
     }
 
-    topics[session.topic].push(
-      session.accuracy
-    );
-  }
+    function chooseNextBattle(topics) {
+      if (!topics.length) return null;
 
-  return Object.entries(topics)
-    .map(([topic, values]) => {
+      const scored = topics.map((topic) => {
+        const weakness = (100 - topic.accuracy) * 0.45;
+        const lowMastery = (5 - topic.mastery) * 10 * 0.30;
+        const neglect = Math.min(topic.daysSincePractice * 5, 30) * 0.15;
+        const mistakes = Math.min(topic.mistakes * 3, 30) * 0.10;
 
-      const average =
-        values.reduce((a, b) => a + b, 0)
-        / values.length;
+        return {
+          ...topic,
+          score: weakness + lowMastery + neglect + mistakes,
+        };
+      });
 
-      return {
-        topic,
-        average: Math.round(average),
-      };
+      scored.sort((a, b) => b.score - a.score);
+      return scored[0];
+    }
 
-    })
-    .sort(
-      (a, b) => a.average - b.average
-    );
-}
+    // --- COMPONENTS ---
+    function MambaScoreCard({ score }) {
+      return (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-6">
+          <p className="text-zinc-500 font-medium text-sm">Mamba Score</p>
+          <p className="text-4xl font-black mt-2 text-emerald-400">{score}</p>
+        </div>
+      );
+    }
 
-export function calculateMastery(
-  accuracy: number,
-  attempts: number,
-  recentPerformance: number
-) {
+    function AttackMode({ topic, onStart }) {
+      return (
+        <div className="rounded-2xl border border-zinc-700 bg-zinc-950 p-8">
+          <p className="text-sm font-semibold tracking-wider text-zinc-500 uppercase">
+            Your Next Battle
+          </p>
+          <h2 className="text-3xl font-bold mt-3">🐍 {topic}</h2>
+          <p className="text-zinc-400 mt-3">
+            This is currently one of your weakest areas based on performance algorithms.
+          </p>
+          <button
+            onClick={onStart}
+            className="mt-6 bg-white text-black hover:bg-zinc-200 transition-colors px-6 py-3 rounded-lg font-bold"
+          >
+            ATTACK
+          </button>
+        </div>
+      );
+    }
 
-  if (attempts === 0) return 0;
+    function TodayMission() {
+      return (
+        <div className="rounded-xl border border-zinc-800 p-6 bg-zinc-950/30">
+          <h3 className="text-lg font-bold text-zinc-200">Today's Mission</h3>
+          <p className="text-sm text-zinc-400 mt-1">Complete 1 training session with &gt;85% accuracy.</p>
+        </div>
+      );
+    }
 
-  if (
-    accuracy >= 90 &&
-    attempts >= 10 &&
-    recentPerformance >= 90
-  ) {
-    return 5;
-  }
+    // --- MAIN DASHBOARD APP ---
+    function Dashboard() {
+      const [battleStatus, setBattleStatus] = useState("idle");
 
-  if (accuracy >= 80) return 4;
+      // Sample dataset based on your topic model
+      const sampleTopics = [
+        { name: "Organic Chemistry", mastery: 2, accuracy: 62, mistakes: 5, daysSincePractice: 4 },
+        { name: "Linear Algebra", mastery: 4, accuracy: 88, mistakes: 1, daysSincePractice: 1 },
+        { name: "Thermodynamics", mastery: 1, accuracy: 45, mistakes: 8, daysSincePractice: 6 }
+      ];
 
-  if (accuracy >= 70) return 3;
+      const nextBattle = chooseNextBattle(sampleTopics);
 
-  if (accuracy >= 50) return 2;
+      const currentScore = calculateMambaScore({
+        goalCompletion: 70,
+        trainingAccuracy: 82,
+        consistency: 90,
+        weaknessAttack: 60,
+        reflection: 50,
+      });
 
-  return 1;
-}
+      return (
+        <main className="min-h-screen max-w-6xl mx-auto p-8">
+          <header className="mb-8">
+            <h1 className="text-4xl font-extrabold tracking-tight">🐍 MAMBA</h1>
+            <p className="text-zinc-400 mt-2 font-medium">Personal Performance System</p>
+          </header>
 
-export function getMistakeFrequency(
-  mistakes: { type: string }[]
-) {
+          <section className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <MambaScoreCard score={currentScore} />
 
-  const counts: Record<string, number> = {};
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-6">
+              <p className="text-zinc-500 font-medium text-sm">Training</p>
+              <p className="text-3xl font-bold mt-2">0h</p>
+            </div>
 
-  mistakes.forEach(mistake => {
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-6">
+              <p className="text-zinc-500 font-medium text-sm">Goals</p>
+              <p className="text-3xl font-bold mt-2">0%</p>
+            </div>
 
-    counts[mistake.type] =
-      (counts[mistake.type] || 0) + 1;
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-6">
+              <p className="text-zinc-500 font-medium text-sm">Weaknesses</p>
+              <p className="text-3xl font-bold mt-2">
+                {sampleTopics.filter(t => t.accuracy < 70).length}
+              </p>
+            </div>
+          </section>
 
-  });
+          <section className="mt-8 grid md:grid-cols-3 gap-6">
+            <div className="md:col-span-2">
+              {nextBattle && (
+                <AttackMode
+                  topic={nextBattle.name}
+                  onStart={() => alert(`Starting Attack Mode session on: ${nextBattle.name}`)}
+                />
+              )}
+            </div>
 
-  return Object.entries(counts)
-    .sort((a, b) => b[1] - a[1]);
-}
+            <div className="md:col-span-1">
+              <TodayMission />
+            </div>
+          </section>
+        </main>
+      );
+    }
 
-interface Topic {
-  name: string;
-  mastery: number;
-  accuracy: number;
-  mistakes: number;
-  daysSincePractice: number;
-}
-
-export function chooseNextBattle(
-  topics: Topic[]
-) {
-
-  if (!topics.length) {
-    return null;
-  }
-
-  const scored = topics.map(topic => {
-
-    const weakness =
-      (100 - topic.accuracy) * 0.45;
-
-    const lowMastery =
-      (5 - topic.mastery) * 10 * 0.30;
-
-    const neglect =
-      Math.min(topic.daysSincePractice * 5, 30)
-      * 0.15;
-
-    const mistakes =
-      Math.min(topic.mistakes * 3, 30)
-      * 0.10;
-
-    return {
-      ...topic,
-
-      score:
-        weakness +
-        lowMastery +
-        neglect +
-        mistakes
-    };
-
-  });
-
-  scored.sort(
-    (a, b) => b.score - a.score
-  );
-
-  return scored[0];
-}
-
-export function AttackMode({
-  topic,
-  onStart
-}: {
-  topic: string;
-  onStart: () => void;
-}) {
-
-  return (
-
-    <div className="rounded-2xl border
-                    border-zinc-700
-                    bg-zinc-950
-                    p-8">
-
-      <p className="text-sm text-zinc-500">
-        YOUR NEXT BATTLE
-      </p>
-
-      <h2 className="text-3xl font-bold mt-3">
-        🐍 {topic}
-      </h2>
-
-      <p className="text-zinc-400 mt-3">
-        This is currently one of your
-        weakest areas.
-      </p>
-
-      <button
-        onClick={onStart}
-        className="mt-6 bg-white
-                   text-black px-6 py-3
-                   rounded-lg font-bold"
-      >
-        ATTACK
-      </button>
-
-    </div>
-
-  );
-}
-
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-export async function POST(req: Request) {
-
-  const body = await req.json();
-
-  const prompt = `
-You are the Mamba Performance Coach.
-
-Analyze the student's performance.
-
-Training:
-${JSON.stringify(body.training)}
-
-Mistakes:
-${JSON.stringify(body.mistakes)}
-
-Mastery:
-${JSON.stringify(body.mastery)}
-
-Goals:
-${JSON.stringify(body.goals)}
-
-Give:
-
-1. Biggest weakness
-2. Biggest strength
-3. Main reason for poor performance
-4. One thing to stop doing
-5. One thing to start doing
-6. Next training mission
-7. Recommended duration
-8. Target accuracy
-
-Do not give generic motivational advice.
-Use the student's actual data.
-`;
-
-  const response =
-    await openai.responses.create({
-      model: "gpt-5",
-      input: prompt
-    });
-
-  return Response.json({
-    advice: response.output_text
-  });
-}
-
-
+    // Render App
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<Dashboard />);
+  </script>
+</body>
+</html>
 
 
